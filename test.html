@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>COH Payments Dashboard (Fixed Credentials)</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body { padding: 1rem; }
+    section { margin-bottom: 2rem; }
+    .table-responsive { max-height: 360px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="mb-4">COH Payments API Dashboard</h1>
+    <div class="alert alert-info mb-4">
+      <p><strong>Using fixed API:</strong></p>
+      <ul>
+        <li>URL: <code>http://41.87.209.218:7026/api/Payments/SubmitRequest</code></li>
+        <li>Username: <code>coh_test</code></li>
+        <li>Password: <code>4r@55w0r8x</code></li>
+        <li>Private Key: <code>c0h@G*-rtm0rtsww</code></li>
+      </ul>
+    </div>
+
+    <!-- AUTH -->
+    <section>
+      <h3>AUTH Request</h3>
+      <button id="btnAuth" class="btn btn-primary mb-2">Send AUTH Request</button>
+      <div id="authStatus" class="mb-2"></div>
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped table-sm" id="authTable">
+          <thead class="table-primary">
+            <tr>
+              <th>participant</th>
+              <th>participantReference</th>
+              <th>provider</th>
+              <th>accountName</th>
+              <th>accountBalance</th>
+              <th>success</th>
+              <th>providerResponse</th>
+              <th>providerDescription</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PAYMENT -->
+    <section>
+      <h3>PAYMENT Request</h3>
+      <button id="btnPayment" class="btn btn-primary mb-2">Send PAYMENT Request</button>
+      <div id="paymentStatus" class="mb-2"></div>
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped table-sm" id="paymentTable">
+          <thead class="table-success">
+            <tr>
+              <th>participant</th>
+              <th>participantReference</th>
+              <th>provider</th>
+              <th>billAmount</th>
+              <th>providerResponse</th>
+              <th>providerDescription</th>
+              <th>success</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- REVERSAL -->
+    <section>
+      <h3>REVERSAL Request</h3>
+      <button id="btnReversal" class="btn btn-primary mb-2">Send REVERSAL Request</button>
+      <div id="reversalStatus" class="mb-2"></div>
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped table-sm" id="reversalTable">
+          <thead class="table-danger">
+            <tr>
+              <th>participant</th>
+              <th>participantReference</th>
+              <th>originalParticipantReference</th>
+              <th>billAmount</th>
+              <th>success</th>
+              <th>providerResponse</th>
+              <th>providerDescription</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- API Response -->
+    <section>
+      <h3>API Response</h3>
+      <button id="btnResponse" class="btn btn-primary mb-2">Send AUTH Request (Example)</button>
+      <div id="responseStatus" class="mb-2"></div>
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped table-sm" id="responseTable">
+          <thead class="table-warning">
+            <tr>
+              <th>statusCode</th>
+              <th>resultString</th>
+              <th>authenticatedTrueFalse</th>
+              <th>userType</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Requests Log Static -->
+    <section>
+      <h3>Requests Log (Static Example)</h3>
+      <button id="btnRequestsLog" class="btn btn-primary mb-2">Load Requests Log</button>
+      <div id="requestsLogStatus" class="mb-2"></div>
+      <div class="table-responsive">
+        <table class="table table-bordered table-striped table-sm" id="requestsLogTable">
+          <thead class="table-secondary">
+            <tr>
+              <th>requestId</th>
+              <th>type</th>
+              <th>participant</th>
+              <th>username</th>
+              <th>billAccount</th>
+              <th>amount</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const API_URL = 'http://41.87.209.218:7026/api/Payments/SubmitRequest';
+    const USERNAME = 'coh_test';
+    const PASSWORD = '4r@55w0r8x';
+    const PRIVATE_KEY = 'c0h@G*-rtm0rtsww';
+
+    function makeParticipantReference() {
+      return Date.now().toString();
+    }
+
+    function populateTable(tableId, rows) {
+      const tbody = document.getElementById(tableId).querySelector('tbody');
+      tbody.innerHTML = '';
+      rows.forEach(row => {
+        const tr = document.createElement('tr');
+        row.forEach(cell => {
+          const td = document.createElement('td');
+          td.textContent = cell ?? '';
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function sendRequest(payload, statusId, tableId, mapFunc) {
+      const statusDiv = document.getElementById(statusId);
+      const tbody = document.getElementById(tableId).querySelector('tbody');
+
+      statusDiv.className = 'alert alert-info';
+      statusDiv.textContent = 'Loading... please wait.';
+      tbody.innerHTML = '';
+
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        statusDiv.className = 'alert alert-success';
+        statusDiv.textContent = 'Data loaded successfully.';
+
+        const rows = mapFunc(data);
+        populateTable(tableId, rows);
+
+      } catch (error) {
+        statusDiv.className = 'alert alert-danger';
+        statusDiv.textContent = `Failed to load data: ${error.message}`;
+        tbody.innerHTML = '';
+      }
+    }
+
+    function mapAuth(data) {
+      if (!data) return [];
+      return [[
+        data.participant || '',
+        data.participantReference || '',
+        data.provider || '',
+        data.accountName || '',
+        data.accountBalance || '',
+        data.success === true ? 'Yes' : 'No',
+        data.providerResponse || '',
+        data.providerDescription || ''
+      ]];
+    }
+
+    function mapPayment(data) {
+      if (!data) return [];
+      return [[
+        data.participant || '',
+        data.participantReference || '',
+        data.provider || '',
+        data.billAmount || '',
+        data.providerResponse || '',
+        data.providerDescription || '',
+        data.success === true ? 'Yes' : 'No'
+      ]];
+    }
+
+    function mapReversal(data) {
+      if (!data) return [];
+      return [[
+        data.participant || '',
+        data.participantReference || '',
+        data.originalParticipantReference || '',
+        data.billAmount || '',
+        data.success === true ? 'Yes' : 'No',
+        data.providerResponse || '',
+        data.providerDescription || ''
+      ]];
+    }
+
+    function mapResponse(data) {
+      if (!data) return [];
+      return [[
+        data.statusCode || '',
+        data.resultString || '',
+        data.authenticatedTrueFalse || '',
+        data.userType || ''
+      ]];
+    }
+
+    function mapRequestsLog() {
+      return [
+        ['REQ001', 'AUTH', 'PAT1', USERNAME, 'BUS0006000', '1259']
+      ];
+    }
+
+    document.getElementById('btnAuth').addEventListener('click', () => {
+      const payload = {
+        type: 'AUTH',
+        participant: 'PAT1',
+        username: USERNAME,
+        password: PASSWORD,
+        privateKey: PRIVATE_KEY,
+        provider: 'COH',
+        participantReference: makeParticipantReference(),
+        billAccount: 'BUS0006000'
+      };
+      sendRequest(payload, 'authStatus', 'authTable', mapAuth);
+    });
+
+    document.getElementById('btnPayment').addEventListener('click', () => {
+      const payload = {
+        type: 'PAYMENT',
+        participant: 'PAT1',
+        username: USERNAME,
+        password: PASSWORD,
+        privateKey: PRIVATE_KEY,
+        provider: 'COH',
+        providerProduct: 'ONLINE',
+        participantReference: makeParticipantReference(),
+        billAccount: 'BUS0006000',
+        billAmount: '1259',
+        channel: 'INTERNET',
+        paymentType: 'CARD'
+      };
+      sendRequest(payload, 'paymentStatus', 'paymentTable', mapPayment);
+    });
+
+    document.getElementById('btnReversal').addEventListener('click', () => {
+      const payload = {
+        type: 'REVERSAL',
+        participant: 'PAT1',
+        username: USERNAME,
+        password: PASSWORD,
+        privateKey: PRIVATE_KEY,
+        provider: 'COH',
+        providerProduct: 'ONLINE',
+        participantReference: makeParticipantReference(),
+        originalParticipantReference: '1234567890', // Change as needed
+        billAccount: 'BUS0006000',
+        billAmount: '1259',
+        channel: 'INTERNET',
+        paymentType: 'CARD'
+      };
+      sendRequest(payload, 'reversalStatus', 'reversalTable', mapReversal);
+    });
+
+    document.getElementById('btnResponse').addEventListener('click', () => {
+      // Use AUTH for example response display
+      const payload = {
+        type: 'AUTH',
+        participant: 'PAT1',
+        username: USERNAME,
+        password: PASSWORD,
+        privateKey: PRIVATE_KEY,
+        provider: 'COH',
+        participantReference: makeParticipantReference(),
+        billAccount: 'BUS0006000'
+      };
+      sendRequest(payload, 'responseStatus', 'responseTable', mapResponse);
+    });
+
+    document.getElementById('btnRequestsLog').addEventListener('click', () => {
+      populateTable('requestsLogTable', mapRequestsLog());
+      document.getElementById('requestsLogStatus').textContent = 'Loaded static requests log.';
+    });
+  </script>
+</body>
+</html>
